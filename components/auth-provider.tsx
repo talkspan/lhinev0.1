@@ -66,23 +66,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const savedUser = localStorage.getItem("timeline-user")
-        const savedTimelines = localStorage.getItem("timeline-timelines")
-        const savedCurrentId = localStorage.getItem("timeline-current")
+        // Check for server-side session first
+        const response = await fetch("/api/auth/session")
+        const sessionData = await response.json()
 
-        if (savedUser) {
-          const userData = JSON.parse(savedUser)
-          setUser(userData)
-
-          if (savedTimelines) {
-            const timelinesData = JSON.parse(savedTimelines)
-            setTimelines(timelinesData)
-
-            if (savedCurrentId) {
-              const current = timelinesData.find((t: Timeline) => t.id === savedCurrentId)
-              setCurrentTimeline(current || null)
-            }
+        if (sessionData.authenticated && sessionData.user) {
+          setUser(sessionData.user)
+          await loadUserTimelines(sessionData.user.id)
+        } else {
+          // Fallback to localStorage for demo mode
+          const savedUser = localStorage.getItem("timeline-user")
+          if (savedUser) {
+            const userData = JSON.parse(savedUser)
+            setUser(userData)
+            await loadUserTimelines(userData.id)
           }
+        }
+
+        // Handle OAuth callback success
+        const urlParams = new URLSearchParams(window.location.search)
+        if (urlParams.get("auth") === "success") {
+          // Remove the auth parameter from URL
+          window.history.replaceState({}, document.title, window.location.pathname)
+          // Refresh session data
+          const refreshResponse = await fetch("/api/auth/session")
+          const refreshData = await refreshResponse.json()
+          if (refreshData.authenticated) {
+            setUser(refreshData.user)
+            await loadUserTimelines(refreshData.user.id)
+          }
+        }
+
+        // Handle OAuth errors
+        const errorParam = urlParams.get("error")
+        if (errorParam) {
+          const errorMessages: Record<string, string> = {
+            oauth_denied: "Authentication was cancelled",
+            config_error: "OAuth configuration error",
+            token_exchange_failed: "Failed to exchange authorization code",
+            user_fetch_failed: "Failed to fetch user information",
+            server_error: "Server error during authentication",
+          }
+          setError(errorMessages[errorParam] || "Authentication failed")
+          window.history.replaceState({}, document.title, window.location.pathname)
         }
       } catch (error) {
         console.error("Auth check failed:", error)
@@ -95,6 +121,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth()
   }, [])
 
+  const loadUserTimelines = async (userId: string) => {
+    try {
+      const savedTimelines = localStorage.getItem(`timeline-timelines-${userId}`)
+      const savedCurrentId = localStorage.getItem(`timeline-current-${userId}`)
+
+      if (savedTimelines) {
+        const timelinesData = JSON.parse(savedTimelines)
+        setTimelines(timelinesData)
+
+        if (savedCurrentId) {
+          const current = timelinesData.find((t: Timeline) => t.id === savedCurrentId)
+          setCurrentTimeline(current || null)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load user timelines:", error)
+    }
+  }
+
   const signIn = async (provider: "github" | "google") => {
     setIsLoading(true)
     setError(null)
@@ -105,7 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (provider === "github" && githubClientId) {
         const state = generateSecureState()
-        const redirectUri = encodeURIComponent(window.location.origin + "/auth/callback")
+        const redirectUri = encodeURIComponent(`${window.location.origin}/api/auth/github/callback`)
 
         sessionStorage.setItem("oauth_state", state)
         sessionStorage.setItem("oauth_provider", provider)
@@ -117,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (provider === "google" && googleClientId) {
         const state = generateSecureState()
-        const redirectUri = encodeURIComponent(window.location.origin + "/auth/callback")
+        const redirectUri = encodeURIComponent(`${window.location.origin}/api/auth/google/callback`)
 
         sessionStorage.setItem("oauth_state", state)
         sessionStorage.setItem("oauth_provider", provider)
@@ -161,14 +206,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
+    try {
+      // Call server-side logout to clear session cookie
+      await fetch("/api/auth/logout", { method: "POST" })
+    } catch (error) {
+      console.error("Server logout failed:", error)
+    }
+
+    // Clear client-side state
+    const userId = user?.id
     setUser(null)
     setTimelines([])
     setCurrentTimeline(null)
     setError(null)
     setShowDashboard(false)
+
+    // Clear user-specific localStorage
+    if (userId) {
+      localStorage.removeItem(`timeline-timelines-${userId}`)
+      localStorage.removeItem(`timeline-current-${userId}`)
+    }
     localStorage.removeItem("timeline-user")
-    localStorage.removeItem("timeline-timelines")
-    localStorage.removeItem("timeline-current")
     sessionStorage.removeItem("oauth_state")
     sessionStorage.removeItem("oauth_provider")
   }
@@ -192,8 +250,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setTimelines([defaultTimeline])
     setCurrentTimeline(defaultTimeline)
     setShowDashboard(false)
-    localStorage.setItem("timeline-timelines", JSON.stringify([defaultTimeline]))
-    localStorage.setItem("timeline-current", defaultTimeline.id)
+    localStorage.setItem(`timeline-timelines-${updatedUser.id}`, JSON.stringify([defaultTimeline]))
+    localStorage.setItem(`timeline-current-${updatedUser.id}`, defaultTimeline.id)
   }
 
   const createTimeline = async (name: string): Promise<Timeline> => {
@@ -210,26 +268,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const updatedTimelines = [...timelines, newTimeline]
     setTimelines(updatedTimelines)
-    localStorage.setItem("timeline-timelines", JSON.stringify(updatedTimelines))
+    localStorage.setItem(`timeline-timelines-${user.id}`, JSON.stringify(updatedTimelines))
 
-    // Automatically select the newly created timeline
     setCurrentTimeline(newTimeline)
     setShowDashboard(false)
-    localStorage.setItem("timeline-current", newTimeline.id)
+    localStorage.setItem(`timeline-current-${user.id}`, newTimeline.id)
 
     return newTimeline
   }
 
   const selectTimeline = (timelineId: string) => {
+    if (!user) return
+
     const timeline = timelines.find((t) => t.id === timelineId)
     if (timeline) {
       setCurrentTimeline(timeline)
       setShowDashboard(false)
-      localStorage.setItem("timeline-current", timelineId)
+      localStorage.setItem(`timeline-current-${user.id}`, timelineId)
     }
   }
 
   const updateTimeline = async (updatedTimeline: Timeline) => {
+    if (!user) return
+
     const updatedTimelines = timelines.map((t) =>
       t.id === updatedTimeline.id ? { ...updatedTimeline, updatedAt: Date.now() } : t,
     )
@@ -239,7 +300,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setCurrentTimeline({ ...updatedTimeline, updatedAt: Date.now() })
     }
 
-    localStorage.setItem("timeline-timelines", JSON.stringify(updatedTimelines))
+    localStorage.setItem(`timeline-timelines-${user.id}`, JSON.stringify(updatedTimelines))
   }
 
   const openTimelineDashboard = () => {
@@ -247,16 +308,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const deleteTimeline = async (timelineId: string) => {
+    if (!user) return
+
     const updatedTimelines = timelines.filter((t) => t.id !== timelineId)
     setTimelines(updatedTimelines)
 
     if (currentTimeline?.id === timelineId) {
       setCurrentTimeline(updatedTimelines[0] || null)
       setShowDashboard(false)
-      localStorage.setItem("timeline-current", updatedTimelines[0]?.id || "")
+      localStorage.setItem(`timeline-current-${user.id}`, updatedTimelines[0]?.id || "")
     }
 
-    localStorage.setItem("timeline-timelines", JSON.stringify(updatedTimelines))
+    localStorage.setItem(`timeline-timelines-${user.id}`, JSON.stringify(updatedTimelines))
   }
 
   const clearError = () => setError(null)
