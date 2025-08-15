@@ -30,7 +30,7 @@ export function HomePage() {
   return (
     <div className="welcome-container">
       <div className="welcome-content">
-        <div className="welcome-title">Timeline</div>
+        <div className="welcome-title">Lhine</div>
         <div className="welcome-subtitle">Plan and visualize your events.</div>
 
         <div className="auth-buttons">
