@@ -168,6 +168,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sessionStorage.setItem("oauth_provider", provider)
 
         const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${redirectUri}&response_type=code&scope=openid%20email%20profile&state=${state}&access_type=offline&prompt=consent`
+        
+        // =================================================
+        // ADD THE NEW LINE RIGHT HERE
+        console.log("Generated Google Auth URL:", authUrl);
+        // =================================================
+
         window.location.href = authUrl
         return
       }
