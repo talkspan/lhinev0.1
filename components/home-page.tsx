@@ -31,7 +31,7 @@ export function HomePage() {
     <div className="welcome-container">
       <div className="welcome-content">
         <div className="welcome-title">Lhine</div>
-        <div className="welcome-subtitle">Plan and visualize your events.</div>
+        <div className="welcome-subtitle">Plan and visualize your events. In a line.</div>
 
         <div className="auth-buttons">
           <button className="auth-btn" onClick={() => handleSignIn("github")} disabled={signingIn !== null}>
