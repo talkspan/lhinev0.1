@@ -90,15 +90,18 @@ function TimelinePlanner() {
     [updateTimeline],
   )
 
-  const saveEventsToTimeline = useCallback(() => {
-    if (currentTimeline) {
-      const updatedTimeline = {
-        ...currentTimeline,
-        events: events,
+  const saveEventsToTimeline = useCallback(
+    (newEvents: Array<{ id: string; title: string; time: number }>) => {
+      if (currentTimeline) {
+        const updatedTimeline = {
+          ...currentTimeline,
+          events: newEvents,
+        }
+        updateTimelineCallback(updatedTimeline)
       }
-      updateTimelineCallback(updatedTimeline)
-    }
-  }, [currentTimeline, events, updateTimelineCallback])
+    },
+    [currentTimeline, updateTimelineCallback],
+  )
 
   // notifications – prevent duplicates and track active notifications
   const [notified, setNotified] = useState<Set<string>>(() => {
@@ -537,7 +540,7 @@ function TimelinePlanner() {
       startX: point.x,
       startY: point.y,
       startCenter: centerRef.current,
-      startMsPerPx: msPerPx.current,
+      startMsPerPx: msPerPxRef.current,
       lastX: point.x,
       lastY: point.y,
       lastT: performance.now(),
@@ -553,32 +556,33 @@ function TimelinePlanner() {
   }
 
   const onPointerMove = useCallback(
-    (e: PointerEvent) => {
-      if (!e || !canvasRef.current) return
+    (e: React.MouseEvent) => {
+      const { clientX, clientY } = e
+      if (!canvasRef.current) return
 
       const rect = canvasRef.current.getBoundingClientRect()
       if (!rect) return
 
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
+      const x = clientX - rect.left
+      const y = clientY - rect.top
 
       // Only update state if values actually changed
       if (hover?.x !== x || hover?.y !== y) {
         setHover({ x, y })
       }
 
-      const centerlineY = (headerHeight + size.height) / 2;
+      const centerlineY = size.height / 2
       const isHoveringCenterline = Math.abs(y - centerlineY) < 20
 
       if (hoveringCenterline !== isHoveringCenterline) {
         setHoveringCenterline(isHoveringCenterline)
       }
     },
-    [hover?.x, hover?.y, hoveringCenterline, headerHeight, size.height],
+    [hover?.x, hover?.y, hoveringCenterline, size.height],
   )
 
-  const onPointerEnd = (e: React.TouchEvent | React.MouseEvent) => {
-    e.preventDefault()
+  const onPointerEnd = (e?: React.TouchEvent | React.MouseEvent) => {
+    e?.preventDefault()
 
     setTouchState((prev) => ({
       ...prev,
@@ -618,7 +622,7 @@ function TimelinePlanner() {
     timeAtX = Math.round(timeAtX / snapInterval) * snapInterval
 
     // Check if we're near the centerline (within 30px vertically)
-    const midY = Math.round((headerHeight + size.height) / 2)
+    const midY = size.height / 2
     const distanceFromCenterline = Math.abs(y - midY)
     const centerlineThreshold = 30
 
@@ -749,7 +753,7 @@ function TimelinePlanner() {
       setSelectedId(best)
       setDraft(null)
     } else {
-      const midY = Math.round((headerHeight + size.height) / 2)
+      const midY = size.height / 2
       const pad = 12
       const px = Math.max(pad, Math.min(size.width - 320, x - 160))
       const py = Math.max(headerHeight + pad, Math.min(size.height - 120, midY - 60))
@@ -784,79 +788,44 @@ function TimelinePlanner() {
   ]
 
   const getTimeFromOption = (option: string): number => {
-    const now = Date.now()
-    const today = new Date()
-
-    // Get start of today for comparison
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    const eventDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-
-    const daysDiff = Math.floor((eventDate.getTime() - todayStart.getTime()) / (24 * 60 * 60 * 1000))
-    const timeStr = eventDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-
-    // Today
-    if (daysDiff === 0) {
-      return now + Number.parseInt(option.slice(0, -1)) * 60 * 1000
+    const now = new Date()
+    switch (option) {
+      case "15m":
+        return now.getTime() + 15 * 60 * 1000
+      case "30m":
+        return now.getTime() + 30 * 60 * 1000
+      case "1h":
+        return now.getTime() + 60 * 60 * 1000
+      case "2h":
+        return now.getTime() + 2 * 60 * 60 * 1000
+      case "4h":
+        return now.getTime() + 4 * 60 * 60 * 1000
+      case "tomorrow-9":
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0).getTime()
+      case "tomorrow-14":
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 14, 0).getTime()
+      case "tomorrow-18":
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 18, 0).getTime()
+      case "next-week":
+        const nextMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (8 - now.getDay()), 9, 0)
+        return nextMonday.getTime()
+      case "custom":
+        return new Date(at).getTime()
+      default:
+        return now.getTime()
     }
-
-    // Tomorrow
-    if (daysDiff === 1) {
-      return new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 9, 0).getTime()
-    }
-
-    // This week (within 7 days and same week)
-    if (daysDiff > 1 && daysDiff <= 6) {
-      const dayName = eventDate.toLocaleDateString([], { weekday: "long" })
-      return new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate() + Number.parseInt(option.slice(0, -1)),
-        9,
-        0,
-      ).getTime()
-    }
-
-    // Next week (7-13 days)
-    if (daysDiff >= 7 && daysDiff <= 13) {
-      const dayName = eventDate.toLocaleDateString([], { weekday: "long" })
-      return new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate() + Number.parseInt(option.slice(0, -1)),
-        9,
-        0,
-      ).getTime()
-    }
-
-    // Same year but more than 2 weeks away
-    if (eventDate.getFullYear() === today.getFullYear() && daysDiff > 13) {
-      return new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate() + Number.parseInt(option.slice(0, -1)),
-        9,
-        0,
-      ).getTime()
-    }
-
-    // Different year
-    return new Date(
-      today.getFullYear() + Number.parseInt(option.slice(0, -1)),
-      today.getMonth(),
-      today.getDate(),
-      9,
-      0,
-    ).getTime()
   }
 
   const addEvent = () => {
     const t = getTimeFromOption(whenOption)
     if (!t || !title.trim()) return
     const ev = { id: cryptoRandomId(), title: title.trim(), time: t }
-    setEvents((arr) => [...arr, ev].sort((a, b) => a.time - b.time))
+    const newEvents = [...events, ev].sort((a, b) => a.time - b.time)
+    setEvents(newEvents)
     setTitle("")
     setWhenOption("custom")
-    saveEventsToTimeline() // Manually update timeline when events change
+    setAt(new Date().toISOString().slice(0, 16))
+    saveEventsToTimeline(newEvents) // Manually update timeline when events change
   }
 
   // quick-add submit
@@ -866,16 +835,18 @@ function TimelinePlanner() {
     const name = draft.title.trim()
     if (!name) return
     const ev = { id: cryptoRandomId(), title: name, time: draft.time }
-    setEvents((arr) => [...arr, ev].sort((a, b) => a.time - b.time))
+    const newEvents = [...events, ev].sort((a, b) => a.time - b.time)
+    setEvents(newEvents)
     setDraft(null)
-    saveEventsToTimeline() // Manually update timeline when events change
+    saveEventsToTimeline(newEvents) // Manually update timeline when events change
   }
 
   const removeSelected = () => {
     if (!selectedId) return
-    setEvents((arr) => arr.filter((e) => e.id !== selectedId))
+    const newEvents = events.filter((e) => e.id !== selectedId)
+    setEvents(newEvents)
     setSelectedId(null)
-    saveEventsToTimeline() // Manually update timeline when events change
+    saveEventsToTimeline(newEvents) // Manually update timeline when events change
   }
 
   // Enhanced events list - only show upcoming events
@@ -1017,20 +988,22 @@ function TimelinePlanner() {
       {/* canvases */}
       <canvas
         ref={canvasRef}
-        className={`timeline-canvas ${hoveringCenterline ? "hovering-centerline" : ""} ${touchState.active && touchState.moved ? "panning" : ""}`}
+        className={`timeline-canvas ${hoveringCenterline ? "hovering-centerline" : ""} ${
+          touchState.active && touchState.moved ? "panning" : ""
+        }`}
         onWheel={onWheel}
         onMouseDown={onPointerStart}
         onMouseMove={onPointerMove}
-        onMouseUp={onPointerEnd}
+        onMouseUp={(e) => onPointerEnd(e)}
         onMouseLeave={() => {
-          onPointerEnd
+          onPointerEnd()
           setEventGroupTooltip(null)
           setHoveringCenterline(false)
         }}
         onTouchStart={onPointerStart}
-        onTouchMove={onPointerMove}
+        onTouchMove={(e: any) => onPointerMove(e.touches[0])}
         onTouchEnd={onTouchClick}
-        onTouchCancel={onPointerEnd}
+        onTouchCancel={(e) => onPointerEnd(e)}
         onClick={(e) => {
           if (!touchState.moved) {
             const rect = canvasRef.current!.getBoundingClientRect()

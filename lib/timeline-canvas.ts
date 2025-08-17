@@ -1,3 +1,4 @@
+// talkspan/lhinev0.1/talkspan-lhinev0.1-42abd1fd759c93053f62474668c63ce5e8fd2d48/lib/timeline-canvas.ts
 // Timeline drawing utilities – fluid "now", centerline labels, and far-zoom decimation
 
 // Enhanced helper for contextual time formatting
@@ -137,7 +138,7 @@ function fmtDuration(ms: number) {
   const r = (n: number) => Math.round(n * 10) / 10
   if (abs < MIN) return `${r(ms / SEC)}s`
   if (abs < HOUR) return `${r(ms / MIN)}m`
-  if (abs < DAY) return `${r(ms / DAY)}h`
+  if (abs < DAY) return `${r(ms / HOUR)}h`
   if (abs < WEEK) return `${r(ms / DAY)}d`
   if (abs < 30 * DAY) return `${r(ms / WEEK)}w`
   if (abs < 365 * DAY) return `${r(ms / (30 * DAY))}mo`
@@ -176,7 +177,7 @@ export function drawTimeline(ctx: CanvasRenderingContext2D, opts: DrawTimelineOp
   const leftInset = 12
   const cx = width / 2 // visual center
   const visibleW = Math.max(1, width - leftInset - rightInset)
-  const midY = Math.round((safeTop + height) / 2) // centerline
+  const midY = height / 2 // centerline
   const startMs = centerTime - (visibleW / 2) * msPerPx
   const endMs = centerTime + (visibleW / 2) * msPerPx
 
