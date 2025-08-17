@@ -137,7 +137,7 @@ function fmtDuration(ms: number) {
   const r = (n: number) => Math.round(n * 10) / 10
   if (abs < MIN) return `${r(ms / SEC)}s`
   if (abs < HOUR) return `${r(ms / MIN)}m`
-  if (abs < DAY) return `${r(ms / HOUR)}h`
+  if (abs < DAY) return `${r(ms / DAY)}h`
   if (abs < WEEK) return `${r(ms / DAY)}d`
   if (abs < 30 * DAY) return `${r(ms / WEEK)}w`
   if (abs < 365 * DAY) return `${r(ms / (30 * DAY))}mo`

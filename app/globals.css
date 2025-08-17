@@ -580,23 +580,13 @@ body {
 }
 
 .action-btn.clear {
-  color: #ff6b6b;
-  border-color: rgba(255, 107, 107, 0.3);
+  color: var(--text);
+  border-color: var(--border);
 }
 
 .action-btn.clear:hover {
-  background: rgba(255, 107, 107, 0.1);
-  border-color: #ff6b6b;
-}
-
-.action-btn.today {
-  color: var(--accent);
-  border-color: rgba(var(--accent-rgb), 0.3);
-}
-
-.action-btn.today:hover {
-  background: rgba(var(--accent-rgb), 0.1);
-  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--chip-border);
 }
 
 /* Notifications */

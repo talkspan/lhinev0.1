@@ -291,9 +291,6 @@ export function CustomDateTimePicker({
             <button className="action-btn clear" onClick={clear}>
               Clear
             </button>
-            <button className="action-btn today" onClick={setToday}>
-              Today
-            </button>
           </div>
         </div>
       )}

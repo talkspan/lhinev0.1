@@ -567,14 +567,14 @@ function TimelinePlanner() {
         setHover({ x, y })
       }
 
-      const centerlineY = canvasRef.current.height / 2
+      const centerlineY = (headerHeight + size.height) / 2;
       const isHoveringCenterline = Math.abs(y - centerlineY) < 20
 
       if (hoveringCenterline !== isHoveringCenterline) {
         setHoveringCenterline(isHoveringCenterline)
       }
     },
-    [hover?.x, hover?.y, hoveringCenterline],
+    [hover?.x, hover?.y, hoveringCenterline, headerHeight, size.height],
   )
 
   const onPointerEnd = (e: React.TouchEvent | React.MouseEvent) => {
@@ -725,6 +725,7 @@ function TimelinePlanner() {
     if (!canvasRef.current) return
     const rect = canvasRef.current.getBoundingClientRect()
     const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
     const cx = size.width / 2
     let timeAtX = centerRef.current + (x - cx) * msPerPxRef.current
 
@@ -748,10 +749,10 @@ function TimelinePlanner() {
       setSelectedId(best)
       setDraft(null)
     } else {
-      const y = Math.round((56 + size.height) / 2)
+      const midY = Math.round((headerHeight + size.height) / 2)
       const pad = 12
       const px = Math.max(pad, Math.min(size.width - 320, x - 160))
-      const py = Math.max(56 + pad, Math.min(size.height - 120, y - 60))
+      const py = Math.max(headerHeight + pad, Math.min(size.height - 120, midY - 60))
       setDraft({
         time: timeAtX,
         x: px,
