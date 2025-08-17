@@ -208,18 +208,6 @@ function TimelinePlanner() {
     }
   }, [sidebarOpen])
 
-  // "Now" text for button
-  const [nowText, setNowText] = useState(() =>
-    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-  )
-  useEffect(() => {
-    const id = setInterval(
-      () => setNowText(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })),
-      1000,
-    )
-    return () => clearInterval(id)
-  }, [])
-
   // Enhanced event notifications with in-app notifications
   useEffect(() => {
     const id = setInterval(() => {
@@ -558,8 +546,13 @@ function TimelinePlanner() {
   const onPointerMove = useCallback(
     (e: React.MouseEvent) => {
       const { clientX, clientY } = e
-      if (!canvasRef.current) return
+      if (touchState.active) {
+        const dx = clientX - touchState.startX
+        const newCenter = touchState.startCenter - dx * touchState.startMsPerPx
+        syncCenter(newCenter)
+      }
 
+      if (!canvasRef.current) return
       const rect = canvasRef.current.getBoundingClientRect()
       if (!rect) return
 
@@ -578,7 +571,7 @@ function TimelinePlanner() {
         setHoveringCenterline(isHoveringCenterline)
       }
     },
-    [hover?.x, hover?.y, hoveringCenterline, size.height],
+    [touchState, hover?.x, hover?.y, hoveringCenterline, size.height],
   )
 
   const onPointerEnd = (e?: React.TouchEvent | React.MouseEvent) => {
@@ -1085,9 +1078,34 @@ function TimelinePlanner() {
         </div>
       </div>
 
-      {/* now button */}
-      <button className={`now-btn ${isRecentering ? "recentering" : ""}`} onClick={doRecenter} disabled={isRecentering}>
-        {isRecentering ? "Centering..." : `Now ${nowText}`}
+      {/* Recenter Button */}
+      <button
+        className={`recenter-btn ${!followNow && !isRecentering ? "visible" : ""}`}
+        onClick={doRecenter}
+        disabled={isRecentering}
+      >
+        {isRecentering ? (
+          <div className="spinner" />
+        ) : (
+          <>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 15 15"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              style={{ marginRight: "4px" }}
+            >
+              <path
+                d="M7.5 1.5C3.91015 1.5 1 4.41015 1 8C1 11.5899 3.91015 14.5 7.5 14.5C11.0899 14.5 14 11.5899 14 8C14 4.41015 11.0899 1.5 7.5 1.5ZM0 8C0 3.86599 3.35786 0.5 7.5 0.5C11.6421 0.5 15 3.86599 15 8C15 12.1421 11.6421 15.5 7.5 15.5C3.35786 15.5 0 12.1421 0 8ZM7.125 4C7.05596 4 7 4.05596 7 4.125V7H4.125C4.05596 7 4 7.05596 4 7.125V7.875C4 7.94404 4.05596 8 4.125 8H7V10.875C7 10.944 7.05596 11 7.125 11H7.875C7.94404 11 8 10.944 8 10.875V8H10.875C10.944 8 11 7.94404 11 7.875V7.125C11 7.05596 10.944 7 10.875 7H8V4.125C8 4.05596 7.94404 4 7.875 4H7.125Z"
+                fill="currentColor"
+                fillRule="evenodd"
+                clipRule="evenodd"
+              ></path>
+            </svg>
+            Recenter
+          </>
+        )}
       </button>
 
       {/* selected event popover */}
