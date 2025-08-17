@@ -216,18 +216,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Server logout failed:", error)
     }
 
-    const userId = user?.id
     setUser(null)
     setTimelines([])
     setCurrentTimeline(null)
     setError(null)
     setShowDashboard(false)
 
-    if (userId) {
-      localStorage.removeItem(`timeline-timelines-${userId}`)
-      localStorage.removeItem(`timeline-current-${userId}`)
-    }
-    localStorage.removeItem("timeline-user")
     sessionStorage.removeItem("oauth_state")
     sessionStorage.removeItem("oauth_provider")
   }
