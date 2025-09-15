@@ -12,15 +12,15 @@ import { TimelineDashboard } from "../components/timeline-dashboard"
 export default function App() {
   const { user, currentTimeline, updateTimeline, showDashboard, isLoading } = useAuth()
 
-  if (isLoading) {
+if (isLoading) {
     return (
       <div className="loading-container">
-        <div className="loading-spinner">
+        <div className="loading-content">
           <div className="spinner"></div>
-          <p>Loading Timeline Planner...</p>
+          <p className="loading-text">Loading Timeline Planner...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (!user) return <HomePage />
